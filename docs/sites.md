@@ -47,6 +47,9 @@ var app = window.app,
 - Primer poizvedbe za vsa rudišča (točke):
   - https://gis.geo-zs.si/server/rest/services/MS/Rudisca_Premogovniki/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&f=json
   
+- Primer poizvedbe za pridobivanje mej vseh rudišč
+  - https://gis.geo-zs.si/server/rest/services/MS/MsGeoPsilomelanD96_Pro/FeatureServer/4/query?where=1%3D1&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&defaultSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=*&returnGeometry=true&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&gdbVersion=&historicMoment=&returnDistinctValues=false&returnIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&multipatchOption=xyFootprint&resultOffset=&resultRecordCount=&returnTrueCurves=false&returnExceededLimitFeatures=false&quantizationParameters=&returnCentroid=false&timeReferenceUnknownClient=false&maxRecordCountFactor=&sqlFormat=none&resultType=&featureEncoding=esriDefault&datumTransformation=&f=geojson 
+
 Primer rezultata API-ja:
 
 ```
@@ -67,4 +70,5 @@ Podatki pridobljeni iz API-ja že vsebujejo večino informacij, ampak moramo nar
 
 - https://ms.geo-zs.si/Nahajalisce/Podrobnosti/{id_naha}
 - https://ms.geo-zs.si/Prostor/Podrobnosti/{ID_NAHA_KONCES}
+- 
 
