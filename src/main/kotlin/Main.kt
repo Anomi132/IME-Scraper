@@ -5,6 +5,7 @@ import jsonObjects.ArcGISFeatureSet
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
 
 @Serializable
 class RudnikDat(
@@ -63,32 +64,50 @@ fun parseNahajalisceHtml(html: String): Map<String, String> {
 
     try {
         val doc = Jsoup.parse(html)
-        val dlElement = doc.selectFirst("div.panel-body dl.dl-horizontal")
-        dlElement?.select("dt")?.forEach { dt ->
-            val key = dt.text().trim()
-            val dd = dt.nextElementSibling()
-            if (dd != null && dd.tagName() == "dd") {
-                val value = dd.text().trim()
-                if (key.isNotEmpty()) {
-                    detailsMap[key] = value
+        val panels = doc.select("div.panel")
+
+        for (panel in panels) {
+            val panelTitleElement = panel.selectFirst("div.panel-heading h3.panel-title")
+            val panelTitle = panelTitleElement?.text()?.trim() ?: ""
+
+            if (panelTitle.equals("Literatura", ignoreCase = true)) {
+                continue
+            }
+
+            val dlElement = panel.selectFirst("div.panel-body dl.dl-horizontal.premRudDL")
+
+            dlElement?.select("dt")?.forEach { dt ->
+                val key = dt.text().trim()
+                var dd: Element? = dt.nextElementSibling()
+
+                while (dd != null && dd.tagName() != "dd") {
+                    dd = dd.nextElementSibling()
+                }
+
+                if (dd != null && dd.tagName() == "dd") {
+                    val value = dd.text().trim()
+                    if (key.isNotEmpty()) {
+                        detailsMap[key] = value
+                    }
                 }
             }
         }
     } catch (e: Exception) {
         println("Error during HTML parsing: ${e.message}")
+        e.printStackTrace()
     }
     return detailsMap
 }
 
 /*
     Funkcija naredi posebej GET in pridobi podrobne podatke nahajališč, shrani v json in vrne
-    WARNING TRENUTNO VZAME SAMO PRVIH 5  DA SE NE OBREMENI STREŽNIKA
+    WARNING TRENUTNO VZAME SAMO PRVIH 5 DA SE NE OBREMENI STREŽNIKA
  */
 fun getDetails(rudniki: ArcGISFeatureSet)
 {
     println("\n========== Fetching Details for first 5 Rudnik ==========")
 
-    // TU SE NASTAVI DA JE SAMO 5
+    // TU SE NASTAVI DA JE SAMO 5, ko se vezem vse odstrani [take(5)`]
     rudniki.features.take(5).forEach { feature ->
         val idNahajalisca = feature.attributes.id_naha
         val detailUrl = "https://ms.geo-zs.si/Nahajalisce/Podrobnosti/$idNahajalisca"
@@ -119,7 +138,7 @@ fun getDetails(rudniki: ArcGISFeatureSet)
 
 fun main() {
     val rudnikiJson = getRudnikiJsonData()
-    val tlorisJson = getRudnikiTlorisData()
+    val tlorisJson = getRudnikiTlorisData() // Vse data za tloris v GEOJSON.
 
     println("\n========== Received JSON data ==========")
     println(rudnikiJson)
