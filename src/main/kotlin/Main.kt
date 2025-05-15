@@ -2,10 +2,12 @@ import it.skrape.fetcher.HttpFetcher
 import it.skrape.fetcher.response
 import it.skrape.fetcher.skrape
 import jsonObjects.ArcGISFeatureSet
+import jsonObjects.RudisceAttributes
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import java.math.BigDecimal
 
 @Serializable
 class RudnikDat(
@@ -103,15 +105,13 @@ fun parseNahajalisceHtml(html: String): Map<String, String> {
     Funkcija naredi posebej GET in pridobi podrobne podatke nahajališč, shrani v json in vrne
     WARNING TRENUTNO VZAME SAMO PRVIH 5 DA SE NE OBREMENI STREŽNIKA
  */
-fun getDetails(rudniki: ArcGISFeatureSet)
+fun getDetails(rudniki: List<Rudnik>)
 {
     println("\n========== Fetching Details for first 5 Rudnik ==========")
-
     // TU SE NASTAVI DA JE SAMO 5, ko se vezem vse odstrani [take(5)`]
-    rudniki.features.take(5).forEach { feature ->
-        val idNahajalisca = feature.attributes.id_naha
+    for(rudnik in rudniki.take(5)){
+        val idNahajalisca = rudnik.ID;
         val detailUrl = "https://ms.geo-zs.si/Nahajalisce/Podrobnosti/$idNahajalisca"
-
         println("\n--- Fetching details for ID: $idNahajalisca from $detailUrl ---")
 
         skrape(HttpFetcher) {
@@ -123,28 +123,60 @@ fun getDetails(rudniki: ArcGISFeatureSet)
                 if (status { code } == 200) {
                     val extractedDetails = parseNahajalisceHtml(responseBody)
                     println("Extracted Details for ID $idNahajalisca:")
-                    extractedDetails.forEach { (key, value) ->
-                        println("  $key: $value")
-                    }
+                    rudnik.status = extractedDetails["Stanje:"] ?: "undefined";
+                    rudnik.potential = extractedDetails["Perspektivnost:"] ?: "undefined";
+                    rudnik.municipality = extractedDetails["Občina:"] ?: "undefined";
+                    rudnik.excavationMethod = extractedDetails["Način odkopavanja:"] ?: "undefined";
+//                    rudnik.excavationStart = extractedDetails["Začetek obratovanja:"]?.toIntOrNull()!!;
+                    rudnik.excavationStart = if (extractedDetails["Začetek obratovanja:"]?.isEmpty() == true) 0
+                    else extractedDetails["Začetek obratovanja:"]?.toInt()!!
+//                    rudnik.excavationEnd = extractedDetails["Konec obratovanja:"]?.toIntOrNull()!!;
+                    rudnik.excavationEnd = if (extractedDetails["Konec obratovanja:"]?.isEmpty() == true) 0
+                    else extractedDetails["Konec obratovanja:"]?.toInt()!!
+                    rudnik.oreSupplies = extractedDetails["Rudne zaloge:"]?.replace(Regex("(?i)ocenjeno"), "")?.trim()
+                        ?: "undefined";
+                    rudnik.rockType = extractedDetails["Kamnina:"] ?: "undefined";
+//                    rudnik.mainOre = extractedDetails["Glavni rudni mineral in kovina:"]?.substringBefore(" -")?.trim()?.substringAfterLast(",")?.trim() ?: "";
+                    rudnik.mainOre = Rudnik.cleanMineral(extractedDetails["Glavni rudni mineral in kovina:"] ?: "undefined")
+                    rudnik.mineral = extractedDetails["mineral in kovina:"] ?: "undefined"
+//                    rudnik.sideOres = extractedDetails["Stranski rudni mineral in kovina:"]?.substringBefore(" -")?.trim()?.substringAfterLast(",")?.trim() ?: "";
+                    rudnik.sideOres = Rudnik.cleanMineral(extractedDetails["Stranski rudni mineral in kovina:"] ?: "undefined")
+                    rudnik.usage = extractedDetails["Uporaba:"] ?: "undefined";
+                    rudnik.endUsage = extractedDetails["Končna uporaba:"] ?: "undefined";
                 } else {
                     println("Error fetching details for ID $idNahajalisca: HTTP Status ${status { code }} - ${status { message }}")
                 }
             }
         }
+        rudnik.print();
     }
     println("\n========== Finished Fetching Details ==========")
 }
 
+fun RudisceAttributes.makeRudnik(): Rudnik {
+    return Rudnik(
+        ID = this.id_naha,
+        name = this.ime_nahajalisca,
+        Y = BigDecimal(this.Y),
+        X = BigDecimal(this.X),
+        N = BigDecimal(this.N),
+        E = BigDecimal(this.E),
+        oreDeposit = this.rudisce != 0,
+        coalMine = this.premogovnik != 0
+    )
+}
 
 fun main() {
     val rudnikiJson = getRudnikiJsonData()
     val tlorisJson = getRudnikiTlorisData() // Vse data za tloris v GEOJSON.
 
     println("\n========== Received JSON data ==========")
-    println(rudnikiJson)
+//    println(rudnikiJson)
 
     val json = Json { ignoreUnknownKeys = true }
     val rudniki = json.decodeFromString<ArcGISFeatureSet>(rudnikiJson)
 
-    getDetails(rudniki)
+    val rudnikiList: List<Rudnik> = rudniki.features.map { it.attributes.makeRudnik() }
+
+    getDetails(rudnikiList)
 }
